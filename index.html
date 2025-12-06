@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>สมุดจดการบ้าน</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Drag Polyfill -->
+    <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
+
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            user-select: none;
+            overflow: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .app-height { height: 100dvh; }
+        
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+
+        .task-card {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            touch-action: pan-y;
+        }
+        .task-card:active { cursor: grabbing; }
+        .task-card.dragging {
+            opacity: 0.9;
+            transform: scale(0.98) rotate(1deg);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            z-index: 50;
+            border-color: #60a5fa;
+            background-color: #334155;
+        }
+
+        .column-wrapper {
+            min-width: 280px;
+            width: 85vw;
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-height: 100%;
+            flex-shrink: 0;
+        }
+        @media (min-width: 640px) { .column-wrapper { width: 320px; } }
+
+        .column-content {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 100px;
+            scroll-behavior: smooth;
+        }
+        .column-content.drag-over {
+            background-color: rgba(99, 102, 241, 0.1);
+            border-radius: 0.5rem;
+            border: 2px dashed #818cf8;
+        }
+
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .animate-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        .color-checkbox:checked + div { border-color: #fff; background-color: rgba(255, 255, 255, 0.15); }
+        .color-checkbox:checked + div .check-icon { opacity: 1; transform: scale(1); }
+
+        .day-btn.selected {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="app-height flex flex-col bg-[#0f172a]">
+
+    <!-- Header -->
+    <header class="h-16 bg-slate-800/90 backdrop-blur-md border-b border-slate-700 flex items-center justify-between px-4 z-30 flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-graduation-cap text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-white leading-tight">รายการการบ้าน</h1>
+                <p class="text-[10px] text-slate-400" id="header-username">กำลังโหลด...</p>
+            </div>
+        </div>
+        
+        <div class="flex gap-2">
+            <!-- Edit Name Button -->
+            <button onclick="openWelcomeModal(true)" class="p-2.5 rounded-xl bg-slate-700/30 hover:bg-slate-700 text-slate-400 hover:text-white transition-all">
+                <i class="fa-solid fa-user-pen"></i>
+            </button>
+            <!-- Trash Button -->
+            <button onclick="openTrashModal()" class="relative p-2.5 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-red-400 transition-all border border-slate-600/50">
+                <i class="fa-solid fa-trash-arrow-up text-lg"></i>
+                <span id="trash-count" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-slate-800 transform scale-0 transition-transform duration-300">0</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Board Area -->
+    <div class="flex-1 overflow-x-auto overflow-y-hidden w-full">
+        <div class="h-full flex px-4 pb-4 pt-4 gap-4" id="board">
+            
+            <!-- Todo -->
+            <div class="column-wrapper rounded-xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+                <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-lg shadow-red-500/50"></div>
+                        <span class="font-semibold text-white">ต้องทำ (Todo)</span>
+                    </div>
+                    <span id="count-todo" class="text-xs bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
+                </div>
+                <div id="col-todo" class="column-content p-2 space-y-2" data-col="todo"></div>
+                <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
+                    <button onclick="openAddModal('todo')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-600">
+                        <i class="fa-solid fa-plus"></i> เพิ่มงาน
+                    </button>
+                </div>
+            </div>
+
+            <!-- Doing -->
+            <div class="column-wrapper rounded-xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+                <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/50"></div>
+                        <span class="font-semibold text-white">กำลังทำ (Doing)</span>
+                    </div>
+                    <span id="count-doing" class="text-xs bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
+                </div>
+                <div id="col-doing" class="column-content p-2 space-y-2" data-col="doing"></div>
+                <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
+                    <button onclick="openAddModal('doing')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-600">
+                        <i class="fa-solid fa-plus"></i> เพิ่มงาน
+                    </button>
+                </div>
+            </div>
+
+            <!-- Done -->
+            <div class="column-wrapper rounded-xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-sm flex flex-col">
+                <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/50"></div>
+                        <span class="font-semibold text-white">เสร็จแล้ว (Done)</span>
+                    </div>
+                    <span id="count-done" class="text-xs bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
+                </div>
+                <div id="col-done" class="column-content p-2 space-y-2" data-col="done"></div>
+                <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
+                    <button onclick="openAddModal('done')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-600">
+                        <i class="fa-solid fa-plus"></i> เพิ่มงาน
+                    </button>
+                </div>
+            </div>
+            
+            <div class="w-1 flex-shrink-0"></div>
+        </div>
+    </div>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Welcome / Name Modal -->
+    <div id="welcomeModal" class="fixed inset-0 bg-slate-900 z-[70] flex items-center justify-center p-6 transition-opacity duration-300">
+        <div class="w-full max-w-sm text-center">
+            <div class="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-500/30 animate-bounce">
+                <i class="fa-solid fa-book-open text-4xl text-white"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">ยินดีต้อนรับ!</h2>
+            <p class="text-slate-400 mb-8">สมุดจดการบ้านส่วนตัวของคุณ</p>
+            
+            <div class="bg-slate-800 p-1 rounded-xl border border-slate-700 mb-6">
+                <input type="text" id="usernameInput" class="w-full bg-transparent text-center text-white p-3 outline-none placeholder-slate-500" placeholder="กรอกชื่อของคุณ (เช่น ม่อน)">
+            </div>
+
+            <button onclick="saveUsername()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-500/30 transition-all active:scale-95">
+                เริ่มใช้งานเลย <i class="fa-solid fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div id="addModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800 rounded-2xl border border-slate-600 shadow-2xl w-full max-w-md flex flex-col max-h-[95dvh] transform scale-95 transition-transform duration-200">
+            <div class="p-4 border-b border-slate-700 bg-slate-800 rounded-t-2xl">
+                <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-pen-to-square mr-2"></i>จดการบ้าน</h3>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-5 custom-scroll">
+                <div class="mb-5">
+                    <label class="block text-xs text-blue-400 mb-2 font-bold uppercase">วิชา / รายละเอียด</label>
+                    <input type="text" id="taskInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-slate-600" placeholder="เช่น วิทย์ฯ หน้า 15..." autocomplete="off">
+                </div>
+
+                <div class="mb-5">
+                    <label class="block text-xs text-blue-400 mb-2 font-bold uppercase">ส่งเมื่อไหร่?</label>
+                    <div class="flex bg-slate-900 p-1 rounded-lg mb-3">
+                        <button onclick="setDeadlineMode('week')" id="btn-mode-week" class="flex-1 py-1.5 text-xs rounded-md bg-slate-700 text-white transition-all">วันในสัปดาห์</button>
+                        <button onclick="setDeadlineMode('date')" id="btn-mode-date" class="flex-1 py-1.5 text-xs rounded-md text-slate-400 hover:text-white transition-all">ระบุวันที่</button>
+                        <button onclick="setDeadlineMode('unknown')" id="btn-mode-unknown" class="flex-1 py-1.5 text-xs rounded-md text-slate-400 hover:text-white transition-all">ยังไม่รู้</button>
+                    </div>
+
+                    <div id="deadline-week-selector" class="grid grid-cols-4 gap-2">
+                        <button onclick="selectDay('จันทร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">จันทร์</button>
+                        <button onclick="selectDay('อังคาร')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">อังคาร</button>
+                        <button onclick="selectDay('พุธ')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">พุธ</button>
+                        <button onclick="selectDay('พฤหัส')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">พฤหัส</button>
+                        <button onclick="selectDay('ศุกร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">ศุกร์</button>
+                        <button onclick="selectDay('เสาร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">เสาร์</button>
+                        <button onclick="selectDay('อาทิตย์')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">อาทิตย์</button>
+                        <button onclick="selectDay('พรุ่งนี้')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-yellow-400 hover:bg-slate-700">พรุ่งนี้</button>
+                    </div>
+
+                    <div id="deadline-date-selector" class="hidden">
+                        <input type="date" id="dateInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+
+                    <div id="deadline-unknown-msg" class="hidden text-center p-3 border border-dashed border-slate-700 rounded-xl text-slate-400 text-sm">
+                        <i class="fa-solid fa-question-circle mr-1"></i> เดี๋ยวค่อยมาใส่ทีหลัง
+                    </div>
+                </div>
+                
+                <div class="mb-2">
+                    <label class="block text-xs text-blue-400 mb-2 font-bold uppercase">ติดป้าย (เลือกได้หลายข้อ)</label>
+                    <div class="space-y-2" id="colorPickerList"></div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-700 bg-slate-800/50 rounded-b-2xl flex gap-3">
+                <button onclick="closeAddModal()" class="flex-1 py-3 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl font-medium">ยกเลิก</button>
+                <button onclick="confirmAddTask()" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 active:scale-95 transition-all">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-black/90 backdrop-blur-md hidden z-[60] flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800 rounded-2xl border border-slate-600 shadow-2xl w-full max-w-sm p-6 text-center transform scale-95 transition-all duration-200" id="deleteModalContent">
+            <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <i class="fa-solid fa-trash-can text-3xl text-red-500"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">ลบจริงป่ะ?</h3>
+            <p class="text-slate-400 text-sm mb-6">ย้ายไปถังขยะก่อน เผื่อเปลี่ยนใจ</p>
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium">ไม่ลบ</button>
+                <button onclick="executeDelete()" class="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-medium shadow-lg shadow-red-500/30 active:scale-95 transition-all">ลบเลย</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trash Modal -->
+    <div id="trashModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-[55] flex items-end sm:items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800 w-full sm:w-[500px] h-[85dvh] sm:h-[600px] sm:rounded-2xl rounded-t-2xl border border-slate-600 shadow-2xl flex flex-col transform translate-y-full sm:translate-y-10 transition-transform duration-300" id="trashContent">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 sm:rounded-t-2xl">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-trash-arrow-up text-red-400"></i> ถังขยะ
+                </h3>
+                <button onclick="closeTrashModal()" class="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="trashList" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900/30 custom-scroll"></div>
+            <div class="p-4 border-t border-slate-700 bg-slate-800 text-center pb-8 sm:pb-4 rounded-b-2xl">
+                <button onclick="emptyTrash()" class="text-red-400 text-sm hover:text-red-300 flex items-center justify-center gap-2 mx-auto px-4 py-2 hover:bg-red-500/10 rounded-lg transition-colors">
+                    <i class="fa-solid fa-fire"></i> ล้างถังขยะถาวร
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === CONFIG ===
+        const KEY = 'homework-app-shareable'; // Unique key for this version
+        const USERNAME_KEY = 'homework-username';
+        
+        const TAG_CONFIG = {
+            orange: { class: 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]', text: 'งานเร่งด่วน / Deadline' },
+            blue: { class: 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]', text: 'ชิวๆ งานน้อย' },
+            darkred: { class: 'bg-red-800 border border-red-600 shadow-[0_0_8px_rgba(153,27,27,0.4)]', text: 'สั่งเยอะฉิบ@฿@' },
+            lightgreen: { class: 'bg-lime-400 text-black font-medium shadow-[0_0_8px_rgba(163,230,53,0.4)]', text: 'ทำใน Canva/iPad/มือถือ' },
+            white: { class: 'bg-white text-black font-medium border border-slate-300 shadow-[0_0_8px_rgba(255,255,255,0.4)]', text: 'ครูคงลืมไปแล้วมั้ง' }
+        };
+
+        let state = { todo: [], doing: [], done: [], trash: [] };
+        let currentAddCol = 'todo';
+        let selectedColors = [];
+        let selectedDeadline = { type: 'unknown', value: '' };
+        let itemToDelete = null;
+
+        // === INIT ===
+        function init() {
+            checkUsername(); // Check if user has registered
+            loadData();
+            renderBoard();
+            renderTrashBadge();
+            setupDragAndDrop();
+        }
+
+        // === USERNAME SYSTEM ===
+        function checkUsername() {
+            const name = localStorage.getItem(USERNAME_KEY);
+            if (!name) {
+                openWelcomeModal(false); // Force open, no cancel
+            } else {
+                updateHeaderName(name);
+                document.getElementById('welcomeModal').classList.add('hidden');
+            }
+        }
+
+        function saveUsername() {
+            const input = document.getElementById('usernameInput');
+            const name = input.value.trim();
+            if (name) {
+                localStorage.setItem(USERNAME_KEY, name);
+                updateHeaderName(name);
+                document.getElementById('welcomeModal').classList.add('hidden');
+            } else {
+                input.classList.add('border-red-500');
+                setTimeout(() => input.classList.remove('border-red-500'), 500);
+            }
+        }
+
+        function updateHeaderName(name) {
+            document.getElementById('header-username').innerText = `ของ ${name}`;
+        }
+
+        function openWelcomeModal(isEdit) {
+            const modal = document.getElementById('welcomeModal');
+            const input = document.getElementById('usernameInput');
+            modal.classList.remove('hidden');
+            
+            if (isEdit) {
+                const currentName = localStorage.getItem(USERNAME_KEY);
+                input.value = currentName || '';
+            }
+        }
+
+        // === DATA LOGIC ===
+        function loadData() {
+            const saved = localStorage.getItem(KEY);
+            if (saved) {
+                try {
+                    state = JSON.parse(saved);
+                    if(!state.trash) state.trash = [];
+                } catch (e) { console.error('Error', e); }
+            } else {
+                // DEFAULT DATA FOR NEW USERS (Generic)
+                state.todo = [
+                    { id: 't1', text: 'ยินดีต้อนรับ! กดปุ่ม + เพื่อเพิ่มงาน', colors: ['blue'], deadline: {type: 'unknown', value: ''} }
+                ];
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(KEY, JSON.stringify(state));
+        }
+
+        // === DEADLINE LOGIC ===
+        function setDeadlineMode(mode) {
+            document.querySelectorAll('#btn-mode-week, #btn-mode-date, #btn-mode-unknown').forEach(b => {
+                b.classList.remove('bg-slate-700', 'text-white');
+                b.classList.add('text-slate-400');
+            });
+            const activeBtn = document.getElementById(`btn-mode-${mode}`);
+            activeBtn.classList.add('bg-slate-700', 'text-white');
+            activeBtn.classList.remove('text-slate-400');
+
+            document.getElementById('deadline-week-selector').classList.add('hidden');
+            document.getElementById('deadline-date-selector').classList.add('hidden');
+            document.getElementById('deadline-unknown-msg').classList.add('hidden');
+
+            if (mode === 'week') document.getElementById('deadline-week-selector').classList.remove('hidden');
+            if (mode === 'date') document.getElementById('deadline-date-selector').classList.remove('hidden');
+            if (mode === 'unknown') document.getElementById('deadline-unknown-msg').classList.remove('hidden');
+
+            selectedDeadline.type = mode;
+            if (mode === 'unknown') selectedDeadline.value = '';
+        }
+
+        function selectDay(day) {
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+            const btns = document.querySelectorAll('.day-btn');
+            for(let b of btns) { if(b.innerText === day) b.classList.add('selected'); }
+            selectedDeadline.type = 'week';
+            selectedDeadline.value = day;
+        }
+
+        function formatThaiDate(isoDate) {
+            if(!isoDate) return '';
+            const d = new Date(isoDate);
+            const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`;
+        }
+
+        // === RENDER ===
+        function renderBoard() {
+            ['todo', 'doing', 'done'].forEach(col => {
+                const container = document.getElementById(`col-${col}`);
+                const countBadge = document.getElementById(`count-${col}`);
+                container.innerHTML = '';
+                state[col].forEach(item => container.appendChild(createCard(item, col)));
+                countBadge.innerText = state[col].length;
+            });
+        }
+
+        function createCard(item, colKey) {
+            const div = document.createElement('div');
+            div.className = 'task-card animate-pop group';
+            div.draggable = true;
+            div.id = item.id;
+            div.dataset.col = colKey;
+
+            let tagsHtml = '<div class="flex flex-wrap gap-1.5 mb-2">';
+            (item.colors || ['blue']).forEach(c => {
+                if (TAG_CONFIG[c]) tagsHtml += `<div class="h-1.5 w-6 rounded-full ${TAG_CONFIG[c].class}"></div>`;
+            });
+            tagsHtml += '</div>';
+
+            let deadlineHtml = '';
+            if (item.deadline && item.deadline.type !== 'unknown') {
+                let display = item.deadline.value;
+                let icon = 'fa-calendar-day';
+                let styleClass = 'text-slate-400 bg-slate-800/50 border-slate-700';
+
+                if (item.deadline.type === 'date') {
+                    display = formatThaiDate(item.deadline.value);
+                    icon = 'fa-calendar-alt';
+                }
+                
+                if (item.deadline.value === 'พรุ่งนี้') {
+                    styleClass = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30 font-bold';
+                    icon = 'fa-bolt';
+                }
+
+                deadlineHtml = `
+                    <div class="mt-2 mb-1 inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] ${styleClass}">
+                        <i class="fa-solid ${icon}"></i> ส่ง: ${display}
+                    </div>
+                `;
+            } else {
+                deadlineHtml = `
+                    <div class="mt-2 mb-1 inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-dashed border-slate-700 text-[10px] text-slate-500">
+                        <i class="fa-solid fa-question"></i> ยังไม่รู้วันส่ง
+                    </div>
+                `;
+            }
+
+            div.innerHTML = `
+                ${tagsHtml}
+                <p class="text-slate-100 font-medium leading-snug break-words text-sm">${item.text}</p>
+                ${deadlineHtml}
+                <button class="delete-btn absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-slate-700/50 transition-colors active:scale-90"
+                    onclick="askDelete('${colKey}', '${item.id}')">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+            `;
+
+            div.addEventListener('dragstart', handleDragStart);
+            div.addEventListener('dragend', handleDragEnd);
+            const btn = div.querySelector('.delete-btn');
+            ['mousedown', 'touchstart'].forEach(evt => btn.addEventListener(evt, e => e.stopPropagation()));
+
+            return div;
+        }
+
+        // === MODALS & ACTIONS (Standardized) ===
+        function openAddModal(col) {
+            currentAddCol = col;
+            document.getElementById('taskInput').value = '';
+            document.getElementById('dateInput').value = '';
+            selectedColors = ['blue'];
+            selectedDeadline = { type: 'unknown', value: '' };
+            setDeadlineMode('unknown');
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+
+            const list = document.getElementById('colorPickerList');
+            list.innerHTML = '';
+            Object.keys(TAG_CONFIG).forEach(key => {
+                const conf = TAG_CONFIG[key];
+                const label = document.createElement('label');
+                label.className = 'cursor-pointer block group';
+                label.innerHTML = `
+                    <input type="checkbox" class="hidden color-checkbox" value="${key}" ${key==='blue'?'checked':''}>
+                    <div class="border border-slate-700 bg-slate-900/50 p-2.5 rounded-xl flex items-center gap-3 hover:bg-slate-800 transition-all">
+                        <div class="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center ${conf.class}">
+                            <i class="fa-solid fa-check text-[10px] opacity-0 transition-all check-icon ${['white','lightgreen'].includes(key)?'text-black':'text-white'}"></i>
+                        </div>
+                        <span class="text-xs text-slate-300">${conf.text}</span>
+                    </div>
+                `;
+                label.querySelector('input').onchange = (e) => {
+                    if (e.target.checked) selectedColors.push(key);
+                    else selectedColors = selectedColors.filter(c => c !== key);
+                };
+                list.appendChild(label);
+            });
+
+            const modal = document.getElementById('addModal');
+            const container = modal.querySelector('div');
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('scale-95');
+                container.classList.add('scale-100');
+            });
+        }
+
+        function confirmAddTask() {
+            const txt = document.getElementById('taskInput').value.trim();
+            if (!txt) return;
+            if (selectedColors.length === 0) selectedColors = ['blue'];
+            if (selectedDeadline.type === 'date') {
+                const dateVal = document.getElementById('dateInput').value;
+                if(dateVal) selectedDeadline.value = dateVal;
+                else selectedDeadline.type = 'unknown';
+            }
+
+            state[currentAddCol].push({
+                id: 'id-' + Date.now(),
+                text: txt,
+                colors: [...selectedColors],
+                deadline: { ...selectedDeadline },
+                createDate: new Date().toLocaleDateString('th-TH')
+            });
+            saveData();
+            renderBoard();
+            closeAddModal();
+        }
+
+        function closeAddModal() {
+            const modal = document.getElementById('addModal');
+            const container = modal.querySelector('div');
+            modal.classList.add('opacity-0');
+            container.classList.remove('scale-100');
+            container.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function askDelete(colKey, id) {
+            itemToDelete = { colKey, id };
+            const modal = document.getElementById('deleteConfirmModal');
+            const content = document.getElementById('deleteModalContent');
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); });
+        }
+
+        function executeDelete() {
+            if (!itemToDelete) return;
+            const { colKey, id } = itemToDelete;
+            const idx = state[colKey].findIndex(i => i.id === id);
+            if (idx > -1) {
+                const [item] = state[colKey].splice(idx, 1);
+                item.originalCol = colKey;
+                item.deletedAt = new Date().toLocaleString('th-TH');
+                state.trash.unshift(item);
+                saveData();
+                const el = document.getElementById(id);
+                if (el) { el.style.transform = 'scale(0.8)'; el.style.opacity = '0'; setTimeout(() => el.remove(), 200); }
+                document.getElementById(`count-${colKey}`).innerText = state[colKey].length;
+                renderTrashBadge();
+            }
+            closeDeleteModal();
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('deleteConfirmModal');
+            const content = document.getElementById('deleteModalContent');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); itemToDelete = null; }, 200);
+        }
+
+        function renderTrashBadge() {
+            const badge = document.getElementById('trash-count');
+            const count = state.trash.length;
+            badge.innerText = count;
+            badge.style.transform = count > 0 ? 'scale(1)' : 'scale(0)';
+        }
+
+        function openTrashModal() {
+            const modal = document.getElementById('trashModal');
+            const content = document.getElementById('trashContent');
+            const list = document.getElementById('trashList');
+            list.innerHTML = '';
+            
+            if (state.trash.length === 0) {
+                list.innerHTML = `<div class="flex flex-col items-center justify-center h-40 text-slate-500"><i class="fa-solid fa-wind text-3xl mb-3 opacity-50"></i><p class="text-sm">ถังขยะว่างเปล่า</p></div>`;
+            } else {
+                state.trash.forEach((item, index) => {
+                    const el = document.createElement('div');
+                    el.className = 'bg-slate-800 border border-slate-700 p-3 rounded-xl flex justify-between items-center mb-2 animate-pop';
+                    el.innerHTML = `
+                        <div>
+                            <p class="text-slate-300 text-sm font-medium line-clamp-1">${item.text}</p>
+                            <p class="text-[10px] text-slate-500 mt-0.5">ลบเมื่อ: ${item.deletedAt}</p>
+                        </div>
+                        <button onclick="restoreItem(${index})" class="px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-medium transition-colors border border-blue-500/20">กู้คืน</button>
+                    `;
+                    list.appendChild(el);
+                });
+            }
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-full'); if(window.innerWidth >= 640) content.classList.remove('sm:translate-y-10'); });
+        }
+
+        function closeTrashModal() {
+            const modal = document.getElementById('trashModal');
+            const content = document.getElementById('trashContent');
+            modal.classList.add('opacity-0');
+            content.classList.add('translate-y-full');
+            if(window.innerWidth >= 640) content.classList.add('sm:translate-y-10');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function restoreItem(index) {
+            const [item] = state.trash.splice(index, 1);
+            state[item.originalCol || 'todo'].push(item);
+            saveData();
+            renderBoard();
+            openTrashModal();
+            renderTrashBadge();
+        }
+
+        function emptyTrash() {
+            if (state.trash.length === 0) return;
+            if (confirm('ล้างถาวรเลยนะ?')) { state.trash = []; saveData(); openTrashModal(); renderTrashBadge(); }
+        }
+
+        // === DRAG & DROP ===
+        let draggedId = null;
+        function setupDragAndDrop() {
+            const cols = document.querySelectorAll('.column-content');
+            cols.forEach(col => {
+                col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+                col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+                col.addEventListener('drop', handleDrop);
+            });
+        }
+        function handleDragStart(e) { draggedId = this.id; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedId); }
+        function handleDragEnd() { this.classList.remove('dragging'); document.querySelectorAll('.column-content').forEach(c => c.classList.remove('drag-over')); draggedId = null; }
+        function handleDrop(e) {
+            e.preventDefault();
+            const targetCol = this.dataset.col;
+            if (!draggedId || !targetCol) return;
+            let sourceCol = null, itemIndex = -1;
+            ['todo', 'doing', 'done'].forEach(col => { const idx = state[col].findIndex(i => i.id === draggedId); if (idx > -1) { sourceCol = col; itemIndex = idx; } });
+            if (sourceCol) {
+                const [item] = state[sourceCol].splice(itemIndex, 1);
+                state[targetCol].push(item);
+                saveData();
+                this.appendChild(document.getElementById(draggedId));
+                renderBoard();
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
+
+
