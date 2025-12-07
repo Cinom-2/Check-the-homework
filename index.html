@@ -23,11 +23,76 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        .app-height { height: 100dvh; }
+        /* 1. Mobile & Tablet Optimization (Default) */
+        .app-layout {
+            height: 100dvh; /* Dynamic Height for Mobile Browsers */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Scroll Container for Mobile */
+        .board-container {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: hidden;
+            display: flex;
+            scroll-snap-type: x mandatory; /* Snap effect */
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .column-wrapper {
+            /* Mobile: Almost full screen width */
+            min-width: 85vw; 
+            max-width: 90vw;
+            height: 100%;
+            flex-shrink: 0;
+            scroll-snap-align: center; /* Snap to center */
+            display: flex;
+            flex-direction: column;
+            border-radius: 1rem;
+            background-color: rgba(30, 41, 59, 0.5); /* Slate-800 with opacity */
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            backdrop-filter: blur(8px);
+        }
+
+        /* 2. Desktop & Laptop Optimization (Large Screens) */
+        @media (min-width: 1024px) {
+            .board-container {
+                /* Change flex row to Grid or strict Flex with basis */
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr; /* 3 Equal Columns */
+                gap: 1.5rem;
+                padding: 1.5rem;
+                /* Disable horizontal scroll on desktop */
+                overflow-x: hidden; 
+                scroll-snap-type: none;
+            }
+
+            .column-wrapper {
+                min-width: auto;
+                max-width: none;
+                width: 100%; /* Fill Grid Cell */
+                scroll-snap-align: none;
+            }
+        }
+
+        /* Column Content Area */
+        .column-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem;
+            min-height: 100px;
+        }
         
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        /* Dragging Visuals */
+        .column-content.drag-over {
+            background-color: rgba(99, 102, 241, 0.15);
+            box-shadow: inset 0 0 0 2px #818cf8;
+            border-radius: 0.5rem;
+        }
 
         .task-card {
             background-color: #1e293b;
@@ -36,150 +101,125 @@
             padding: 1rem;
             margin-bottom: 0.75rem;
             cursor: grab;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
             position: relative;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            touch-action: pan-y;
+            touch-action: pan-y; /* Important for mobile scrolling */
         }
+
         .task-card:active { cursor: grabbing; }
         .task-card.dragging {
-            opacity: 0.9;
-            transform: scale(0.98) rotate(1deg);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-            z-index: 50;
-            border-color: #60a5fa;
+            opacity: 1;
             background-color: #334155;
+            transform: scale(1.02) rotate(1deg);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+            border-color: #60a5fa;
         }
 
-        .column-wrapper {
-            min-width: 280px;
-            width: 85vw;
-            max-width: 340px;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            max-height: 100%;
-            flex-shrink: 0;
-        }
-        @media (min-width: 640px) { .column-wrapper { width: 320px; } }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
-        .column-content {
-            flex: 1;
-            overflow-y: auto;
-            min-height: 100px;
-            scroll-behavior: smooth;
-        }
-        .column-content.drag-over {
-            background-color: rgba(99, 102, 241, 0.1);
-            border-radius: 0.5rem;
-            border: 2px dashed #818cf8;
-        }
-
-        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        .animate-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-
+        /* UI Elements */
         .color-checkbox:checked + div { border-color: #fff; background-color: rgba(255, 255, 255, 0.15); }
         .color-checkbox:checked + div .check-icon { opacity: 1; transform: scale(1); }
-
-        .day-btn.selected {
-            background-color: #3b82f6;
-            color: white;
-            border-color: #3b82f6;
-            font-weight: 600;
-        }
+        .day-btn.selected { background-color: #3b82f6; color: white; border-color: #3b82f6; font-weight: 600; }
+        
+        /* Animations */
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .animate-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     </style>
 </head>
-<body class="app-height flex flex-col bg-[#0f172a]">
+<body class="app-layout bg-[#0f172a]">
 
     <!-- Header -->
-    <header class="h-16 bg-slate-800/90 backdrop-blur-md border-b border-slate-700 flex items-center justify-between px-4 z-30 flex-shrink-0">
+    <header class="h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-4 z-30 flex-shrink-0">
         <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <i class="fa-solid fa-graduation-cap text-white"></i>
+            <div class="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-graduation-cap text-white text-sm"></i>
             </div>
             <div>
-                <h1 class="text-base font-bold text-white leading-tight">รายการการบ้าน</h1>
+                <h1 class="text-sm font-bold text-white leading-tight">รายการการบ้าน</h1>
                 <p class="text-[10px] text-slate-400" id="header-username">กำลังโหลด...</p>
             </div>
         </div>
         
         <div class="flex gap-2">
-            <!-- Edit Name Button -->
-            <button onclick="openWelcomeModal(true)" class="p-2.5 rounded-xl bg-slate-700/30 hover:bg-slate-700 text-slate-400 hover:text-white transition-all">
-                <i class="fa-solid fa-user-pen"></i>
+            <button onclick="openWelcomeModal(true)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700">
+                <i class="fa-solid fa-user-pen text-sm"></i>
             </button>
-            <!-- Trash Button -->
-            <button onclick="openTrashModal()" class="relative p-2.5 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-red-400 transition-all border border-slate-600/50">
-                <i class="fa-solid fa-trash-arrow-up text-lg"></i>
-                <span id="trash-count" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-slate-800 transform scale-0 transition-transform duration-300">0</span>
+            <button onclick="openTrashModal()" class="relative p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-all border border-slate-700 group">
+                <i class="fa-solid fa-trash-arrow-up text-sm"></i>
+                <span id="trash-count" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-slate-900 transform scale-0 transition-transform duration-300">0</span>
             </button>
         </div>
     </header>
 
     <!-- Board Area -->
-    <div class="flex-1 overflow-x-auto overflow-y-hidden w-full">
-        <div class="h-full flex px-4 pb-4 pt-4 gap-4" id="board">
-            
-            <!-- Todo -->
-            <div class="column-wrapper rounded-xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-sm flex flex-col">
-                <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-lg shadow-red-500/50"></div>
-                        <span class="font-semibold text-white">ต้องทำ (Todo)</span>
-                    </div>
-                    <span id="count-todo" class="text-xs bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
+    <div class="board-container" id="board">
+        
+        <!-- Column 1: Todo -->
+        <div class="column-wrapper">
+            <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+                    <span class="font-semibold text-white">ต้องทำ (Todo)</span>
                 </div>
-                <div id="col-todo" class="column-content p-2 space-y-2" data-col="todo"></div>
-                <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
-                    <button onclick="openAddModal('todo')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-600">
-                        <i class="fa-solid fa-plus"></i> เพิ่มงาน
-                    </button>
-                </div>
+                <span id="count-todo" class="text-xs font-mono bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
             </div>
-
-            <!-- Doing -->
-            <div class="column-wrapper rounded-xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-sm flex flex-col">
-                <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/50"></div>
-                        <span class="font-semibold text-white">กำลังทำ (Doing)</span>
-                    </div>
-                    <span id="count-doing" class="text-xs bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
-                </div>
-                <div id="col-doing" class="column-content p-2 space-y-2" data-col="doing"></div>
-                <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
-                    <button onclick="openAddModal('doing')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-600">
-                        <i class="fa-solid fa-plus"></i> เพิ่มงาน
-                    </button>
-                </div>
+            <div id="col-todo" class="column-content space-y-2" data-col="todo"></div>
+            <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
+                <button onclick="openAddModal('todo')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
+                    <i class="fa-solid fa-plus"></i> เพิ่มงาน
+                </button>
             </div>
-
-            <!-- Done -->
-            <div class="column-wrapper rounded-xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-sm flex flex-col">
-                <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/50"></div>
-                        <span class="font-semibold text-white">เสร็จแล้ว (Done)</span>
-                    </div>
-                    <span id="count-done" class="text-xs bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
-                </div>
-                <div id="col-done" class="column-content p-2 space-y-2" data-col="done"></div>
-                <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
-                    <button onclick="openAddModal('done')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-600">
-                        <i class="fa-solid fa-plus"></i> เพิ่มงาน
-                    </button>
-                </div>
-            </div>
-            
-            <div class="w-1 flex-shrink-0"></div>
         </div>
+
+        <!-- Column 2: Doing -->
+        <div class="column-wrapper">
+            <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
+                    <span class="font-semibold text-white">กำลังทำ (Doing)</span>
+                </div>
+                <span id="count-doing" class="text-xs font-mono bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
+            </div>
+            <div id="col-doing" class="column-content space-y-2" data-col="doing"></div>
+            <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
+                <button onclick="openAddModal('doing')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
+                    <i class="fa-solid fa-plus"></i> เพิ่มงาน
+                </button>
+            </div>
+        </div>
+
+        <!-- Column 3: Done -->
+        <div class="column-wrapper">
+            <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+                    <span class="font-semibold text-white">เสร็จแล้ว (Done)</span>
+                </div>
+                <span id="count-done" class="text-xs font-mono bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700">0</span>
+            </div>
+            <div id="col-done" class="column-content space-y-2" data-col="done"></div>
+            <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
+                <button onclick="openAddModal('done')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
+                    <i class="fa-solid fa-plus"></i> เพิ่มงาน
+                </button>
+            </div>
+        </div>
+        
+        <!-- Right Spacer for Mobile Scroll -->
+        <div class="w-1 flex-shrink-0 lg:hidden"></div>
     </div>
 
     <!-- ================= MODALS ================= -->
 
     <!-- Welcome / Name Modal -->
-    <div id="welcomeModal" class="fixed inset-0 bg-slate-900 z-[70] flex items-center justify-center p-6 transition-opacity duration-300">
-        <div class="w-full max-w-sm text-center">
+    <div id="welcomeModal" class="fixed inset-0 bg-slate-950/90 z-[70] flex items-center justify-center p-6 transition-opacity duration-300">
+        <div class="w-full max-w-sm text-center transform transition-all duration-300">
             <div class="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-500/30 animate-bounce">
                 <i class="fa-solid fa-book-open text-4xl text-white"></i>
             </div>
@@ -187,7 +227,7 @@
             <p class="text-slate-400 mb-8">สมุดจดการบ้านส่วนตัวของคุณ</p>
             
             <div class="bg-slate-800 p-1 rounded-xl border border-slate-700 mb-6">
-                <input type="text" id="usernameInput" class="w-full bg-transparent text-center text-white p-3 outline-none placeholder-slate-500" placeholder="กรอกชื่อของคุณ (เช่น ม่อน)">
+                <input type="text" id="usernameInput" class="w-full bg-transparent text-center text-white p-3 outline-none placeholder-slate-500 font-medium" placeholder="กรอกชื่อของคุณ (เช่น ม่อน)">
             </div>
 
             <button onclick="saveUsername()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-500/30 transition-all active:scale-95">
@@ -199,8 +239,9 @@
     <!-- Add Task Modal -->
     <div id="addModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
         <div class="bg-slate-800 rounded-2xl border border-slate-600 shadow-2xl w-full max-w-md flex flex-col max-h-[95dvh] transform scale-95 transition-transform duration-200">
-            <div class="p-4 border-b border-slate-700 bg-slate-800 rounded-t-2xl">
+            <div class="p-4 border-b border-slate-700 bg-slate-800 rounded-t-2xl flex justify-between items-center">
                 <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-pen-to-square mr-2"></i>จดการบ้าน</h3>
+                <button onclick="closeAddModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div class="flex-1 overflow-y-auto p-5 custom-scroll">
@@ -218,14 +259,14 @@
                     </div>
 
                     <div id="deadline-week-selector" class="grid grid-cols-4 gap-2">
-                        <button onclick="selectDay('จันทร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">จันทร์</button>
-                        <button onclick="selectDay('อังคาร')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">อังคาร</button>
-                        <button onclick="selectDay('พุธ')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">พุธ</button>
-                        <button onclick="selectDay('พฤหัส')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">พฤหัส</button>
-                        <button onclick="selectDay('ศุกร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">ศุกร์</button>
-                        <button onclick="selectDay('เสาร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">เสาร์</button>
-                        <button onclick="selectDay('อาทิตย์')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-slate-300 hover:bg-slate-700">อาทิตย์</button>
-                        <button onclick="selectDay('พรุ่งนี้')" class="day-btn border border-slate-600 rounded-lg py-2 text-sm text-yellow-400 hover:bg-slate-700">พรุ่งนี้</button>
+                        <button onclick="selectDay('จันทร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">จันทร์</button>
+                        <button onclick="selectDay('อังคาร')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">อังคาร</button>
+                        <button onclick="selectDay('พุธ')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">พุธ</button>
+                        <button onclick="selectDay('พฤหัส')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">พฤหัส</button>
+                        <button onclick="selectDay('ศุกร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">ศุกร์</button>
+                        <button onclick="selectDay('เสาร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">เสาร์</button>
+                        <button onclick="selectDay('อาทิตย์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">อาทิตย์</button>
+                        <button onclick="selectDay('พรุ่งนี้')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-yellow-400 hover:bg-slate-700 font-bold">พรุ่งนี้</button>
                     </div>
 
                     <div id="deadline-date-selector" class="hidden">
@@ -245,7 +286,7 @@
 
             <div class="p-4 border-t border-slate-700 bg-slate-800/50 rounded-b-2xl flex gap-3">
                 <button onclick="closeAddModal()" class="flex-1 py-3 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl font-medium">ยกเลิก</button>
-                <button onclick="confirmAddTask()" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 active:scale-95 transition-all">บันทึก</button>
+                <button onclick="confirmAddTask()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 active:scale-95 transition-all">บันทึก</button>
             </div>
         </div>
     </div>
@@ -287,7 +328,7 @@
 
     <script>
         // === CONFIG ===
-        const KEY = 'homework-app-shareable'; // Unique key for this version
+        const KEY = 'homework-app-responsive';
         const USERNAME_KEY = 'homework-username';
         
         const TAG_CONFIG = {
@@ -306,7 +347,7 @@
 
         // === INIT ===
         function init() {
-            checkUsername(); // Check if user has registered
+            checkUsername();
             loadData();
             renderBoard();
             renderTrashBadge();
@@ -317,7 +358,7 @@
         function checkUsername() {
             const name = localStorage.getItem(USERNAME_KEY);
             if (!name) {
-                openWelcomeModal(false); // Force open, no cancel
+                openWelcomeModal(false);
             } else {
                 updateHeaderName(name);
                 document.getElementById('welcomeModal').classList.add('hidden');
@@ -345,7 +386,6 @@
             const modal = document.getElementById('welcomeModal');
             const input = document.getElementById('usernameInput');
             modal.classList.remove('hidden');
-            
             if (isEdit) {
                 const currentName = localStorage.getItem(USERNAME_KEY);
                 input.value = currentName || '';
@@ -361,7 +401,6 @@
                     if(!state.trash) state.trash = [];
                 } catch (e) { console.error('Error', e); }
             } else {
-                // DEFAULT DATA FOR NEW USERS (Generic)
                 state.todo = [
                     { id: 't1', text: 'ยินดีต้อนรับ! กดปุ่ม + เพื่อเพิ่มงาน', colors: ['blue'], deadline: {type: 'unknown', value: ''} }
                 ];
@@ -443,7 +482,6 @@
                     display = formatThaiDate(item.deadline.value);
                     icon = 'fa-calendar-alt';
                 }
-                
                 if (item.deadline.value === 'พรุ่งนี้') {
                     styleClass = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30 font-bold';
                     icon = 'fa-bolt';
@@ -480,7 +518,7 @@
             return div;
         }
 
-        // === MODALS & ACTIONS (Standardized) ===
+        // === ACTIONS ===
         function openAddModal(col) {
             currentAddCol = col;
             document.getElementById('taskInput').value = '';
@@ -571,10 +609,8 @@
                 item.deletedAt = new Date().toLocaleString('th-TH');
                 state.trash.unshift(item);
                 saveData();
-                const el = document.getElementById(id);
-                if (el) { el.style.transform = 'scale(0.8)'; el.style.opacity = '0'; setTimeout(() => el.remove(), 200); }
-                document.getElementById(`count-${colKey}`).innerText = state[colKey].length;
                 renderTrashBadge();
+                renderBoard(); // Force re-render to remove item visually
             }
             closeDeleteModal();
         }
@@ -644,24 +680,68 @@
             if (confirm('ล้างถาวรเลยนะ?')) { state.trash = []; saveData(); openTrashModal(); renderTrashBadge(); }
         }
 
-        // === DRAG & DROP ===
+        // === DRAG & DROP & AUTO SCROLL (CUSTOM LOGIC) ===
         let draggedId = null;
+        let isDragging = false;
+        
         function setupDragAndDrop() {
+            const container = document.getElementById('board');
             const cols = document.querySelectorAll('.column-content');
+            
+            // Standard Drag Events
             cols.forEach(col => {
-                col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+                col.addEventListener('dragover', e => { 
+                    e.preventDefault(); 
+                    col.classList.add('drag-over');
+                    handleAutoScroll(e.clientX); // Trigger auto-scroll
+                });
                 col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
                 col.addEventListener('drop', handleDrop);
             });
         }
-        function handleDragStart(e) { draggedId = this.id; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedId); }
-        function handleDragEnd() { this.classList.remove('dragging'); document.querySelectorAll('.column-content').forEach(c => c.classList.remove('drag-over')); draggedId = null; }
+        
+        // Custom Auto Scroll Logic for Mobile
+        function handleAutoScroll(cursorX) {
+            const container = document.getElementById('board');
+            const threshold = 60; // Distance from edge to trigger scroll
+            const speed = 10; // Scroll speed
+            const width = window.innerWidth;
+            
+            // Only scroll if screen is narrow (Mobile/Tablet view with overflow)
+            if (window.innerWidth < 1024) {
+                if (cursorX > width - threshold) {
+                    container.scrollLeft += speed;
+                } else if (cursorX < threshold) {
+                    container.scrollLeft -= speed;
+                }
+            }
+        }
+
+        function handleDragStart(e) { 
+            draggedId = this.id; 
+            isDragging = true;
+            this.classList.add('dragging'); 
+            e.dataTransfer.effectAllowed = 'move'; 
+            e.dataTransfer.setData('text/plain', draggedId); 
+        }
+
+        function handleDragEnd() { 
+            isDragging = false;
+            this.classList.remove('dragging'); 
+            document.querySelectorAll('.column-content').forEach(c => c.classList.remove('drag-over')); 
+            draggedId = null; 
+        }
+
         function handleDrop(e) {
             e.preventDefault();
             const targetCol = this.dataset.col;
             if (!draggedId || !targetCol) return;
             let sourceCol = null, itemIndex = -1;
-            ['todo', 'doing', 'done'].forEach(col => { const idx = state[col].findIndex(i => i.id === draggedId); if (idx > -1) { sourceCol = col; itemIndex = idx; } });
+            ['todo', 'doing', 'done'].forEach(col => { 
+                const idx = state[col].findIndex(i => i.id === draggedId); 
+                if (idx > -1) { sourceCol = col; itemIndex = idx; } 
+            });
+            
             if (sourceCol) {
                 const [item] = state[sourceCol].splice(itemIndex, 1);
                 state[targetCol].push(item);
@@ -675,5 +755,3 @@
     </script>
 </body>
 </html>
-
-
