@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>สมุดจดการบ้าน</title>
+    <title>สมุดจดการบ้าน (Auto-Scroll Fixed)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
@@ -21,65 +21,74 @@
             user-select: none;
             overflow: hidden;
             -webkit-overflow-scrolling: touch;
+            /* Prevent swipe navigation on iOS */
+            overscroll-behavior-x: none;
         }
 
-        /* 1. Mobile & Tablet Optimization (Default) */
         .app-layout {
-            height: 100dvh; /* Dynamic Height for Mobile Browsers */
+            height: 100dvh;
             display: flex;
             flex-direction: column;
         }
 
-        /* Scroll Container for Mobile */
         .board-container {
             flex: 1;
             overflow-x: auto;
             overflow-y: hidden;
             display: flex;
-            scroll-snap-type: x mandatory; /* Snap effect */
-            scroll-behavior: smooth;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: auto; /* Changed to auto for smoother JS scrolling */
             -webkit-overflow-scrolling: touch;
             padding: 1rem;
             gap: 1rem;
+            /* Important for auto-scroll */
+            position: relative;
         }
 
+        /* Detect zones for visual debug (Optional - hidden now) */
+        .scroll-zone {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            width: 50px;
+            z-index: 40;
+            pointer-events: none;
+            /* background: rgba(255,0,0,0.1); Debug only */
+        }
+        .scroll-zone-left { left: 0; }
+        .scroll-zone-right { right: 0; }
+
         .column-wrapper {
-            /* Mobile: Almost full screen width */
             min-width: 85vw; 
             max-width: 90vw;
             height: 100%;
             flex-shrink: 0;
-            scroll-snap-align: center; /* Snap to center */
+            scroll-snap-align: center;
             display: flex;
             flex-direction: column;
             border-radius: 1rem;
-            background-color: rgba(30, 41, 59, 0.5); /* Slate-800 with opacity */
+            background-color: rgba(30, 41, 59, 0.6);
             border: 1px solid rgba(51, 65, 85, 0.5);
             backdrop-filter: blur(8px);
         }
 
-        /* 2. Desktop & Laptop Optimization (Large Screens) */
         @media (min-width: 1024px) {
             .board-container {
-                /* Change flex row to Grid or strict Flex with basis */
                 display: grid;
-                grid-template-columns: 1fr 1fr 1fr; /* 3 Equal Columns */
+                grid-template-columns: 1fr 1fr 1fr;
                 gap: 1.5rem;
                 padding: 1.5rem;
-                /* Disable horizontal scroll on desktop */
                 overflow-x: hidden; 
                 scroll-snap-type: none;
             }
-
             .column-wrapper {
                 min-width: auto;
                 max-width: none;
-                width: 100%; /* Fill Grid Cell */
+                width: 100%;
                 scroll-snap-align: none;
             }
         }
 
-        /* Column Content Area */
         .column-content {
             flex: 1;
             overflow-y: auto;
@@ -87,7 +96,6 @@
             min-height: 100px;
         }
         
-        /* Dragging Visuals */
         .column-content.drag-over {
             background-color: rgba(99, 102, 241, 0.15);
             box-shadow: inset 0 0 0 2px #818cf8;
@@ -101,40 +109,40 @@
             padding: 1rem;
             margin-bottom: 0.75rem;
             cursor: grab;
-            transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
             position: relative;
-            touch-action: pan-y; /* Important for mobile scrolling */
+            touch-action: none; /* Critical for DragDropTouch */
         }
 
         .task-card:active { cursor: grabbing; }
         .task-card.dragging {
             opacity: 1;
             background-color: #334155;
-            transform: scale(1.02) rotate(1deg);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+            transform: scale(1.02) rotate(2deg);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             z-index: 100;
-            border-color: #60a5fa;
+            border: 2px solid #60a5fa;
         }
 
-        /* Custom Scrollbar */
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
-        /* UI Elements */
         .color-checkbox:checked + div { border-color: #fff; background-color: rgba(255, 255, 255, 0.15); }
         .color-checkbox:checked + div .check-icon { opacity: 1; transform: scale(1); }
         .day-btn.selected { background-color: #3b82f6; color: white; border-color: #3b82f6; font-weight: 600; }
         
-        /* Animations */
         @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .animate-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     </style>
 </head>
 <body class="app-layout bg-[#0f172a]">
 
-    <!-- Header -->
+    <!-- Zones for logic (invisible) -->
+    <div class="scroll-zone scroll-zone-left"></div>
+    <div class="scroll-zone scroll-zone-right"></div>
+
     <header class="h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-4 z-30 flex-shrink-0">
         <div class="flex items-center gap-3">
             <div class="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
@@ -157,10 +165,8 @@
         </div>
     </header>
 
-    <!-- Board Area -->
     <div class="board-container" id="board">
-        
-        <!-- Column 1: Todo -->
+        <!-- Todo -->
         <div class="column-wrapper">
             <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
                 <div class="flex items-center gap-2">
@@ -171,13 +177,13 @@
             </div>
             <div id="col-todo" class="column-content space-y-2" data-col="todo"></div>
             <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
-                <button onclick="openAddModal('todo')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
+                <button onclick="openAddModal('todo')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
                     <i class="fa-solid fa-plus"></i> เพิ่มงาน
                 </button>
             </div>
         </div>
 
-        <!-- Column 2: Doing -->
+        <!-- Doing -->
         <div class="column-wrapper">
             <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
                 <div class="flex items-center gap-2">
@@ -188,13 +194,13 @@
             </div>
             <div id="col-doing" class="column-content space-y-2" data-col="doing"></div>
             <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
-                <button onclick="openAddModal('doing')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
+                <button onclick="openAddModal('doing')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
                     <i class="fa-solid fa-plus"></i> เพิ่มงาน
                 </button>
             </div>
         </div>
 
-        <!-- Column 3: Done -->
+        <!-- Done -->
         <div class="column-wrapper">
             <div class="p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/80 rounded-t-xl sticky top-0 z-10">
                 <div class="flex items-center gap-2">
@@ -205,32 +211,28 @@
             </div>
             <div id="col-done" class="column-content space-y-2" data-col="done"></div>
             <div class="p-2 border-t border-slate-700/50 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10">
-                <button onclick="openAddModal('done')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
+                <button onclick="openAddModal('done')" class="w-full py-2.5 border border-dashed border-slate-600 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2 active:bg-slate-700/80">
                     <i class="fa-solid fa-plus"></i> เพิ่มงาน
                 </button>
             </div>
         </div>
         
-        <!-- Right Spacer for Mobile Scroll -->
         <div class="w-1 flex-shrink-0 lg:hidden"></div>
     </div>
 
-    <!-- ================= MODALS ================= -->
-
-    <!-- Welcome / Name Modal -->
+    <!-- Modals (Same as before) -->
+    <!-- Welcome Modal -->
     <div id="welcomeModal" class="fixed inset-0 bg-slate-950/90 z-[70] flex items-center justify-center p-6 transition-opacity duration-300">
-        <div class="w-full max-w-sm text-center transform transition-all duration-300">
-            <div class="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-500/30 animate-bounce">
+        <div class="w-full max-w-sm text-center">
+            <div class="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-500/30">
                 <i class="fa-solid fa-book-open text-4xl text-white"></i>
             </div>
             <h2 class="text-2xl font-bold text-white mb-2">ยินดีต้อนรับ!</h2>
             <p class="text-slate-400 mb-8">สมุดจดการบ้านส่วนตัวของคุณ</p>
-            
             <div class="bg-slate-800 p-1 rounded-xl border border-slate-700 mb-6">
-                <input type="text" id="usernameInput" class="w-full bg-transparent text-center text-white p-3 outline-none placeholder-slate-500 font-medium" placeholder="กรอกชื่อของคุณ (เช่น ม่อน)">
+                <input type="text" id="usernameInput" class="w-full bg-transparent text-center text-white p-3 outline-none placeholder-slate-500 font-medium" placeholder="กรอกชื่อของคุณ">
             </div>
-
-            <button onclick="saveUsername()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-500/30 transition-all active:scale-95">
+            <button onclick="saveUsername()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-lg shadow-lg">
                 เริ่มใช้งานเลย <i class="fa-solid fa-arrow-right ml-2"></i>
             </button>
         </div>
@@ -243,50 +245,43 @@
                 <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-pen-to-square mr-2"></i>จดการบ้าน</h3>
                 <button onclick="closeAddModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            
             <div class="flex-1 overflow-y-auto p-5 custom-scroll">
                 <div class="mb-5">
                     <label class="block text-xs text-blue-400 mb-2 font-bold uppercase">วิชา / รายละเอียด</label>
-                    <input type="text" id="taskInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-slate-600" placeholder="เช่น วิทย์ฯ หน้า 15..." autocomplete="off">
+                    <input type="text" id="taskInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="รายละเอียดงาน...">
                 </div>
-
                 <div class="mb-5">
                     <label class="block text-xs text-blue-400 mb-2 font-bold uppercase">ส่งเมื่อไหร่?</label>
                     <div class="flex bg-slate-900 p-1 rounded-lg mb-3">
-                        <button onclick="setDeadlineMode('week')" id="btn-mode-week" class="flex-1 py-1.5 text-xs rounded-md bg-slate-700 text-white transition-all">วันในสัปดาห์</button>
-                        <button onclick="setDeadlineMode('date')" id="btn-mode-date" class="flex-1 py-1.5 text-xs rounded-md text-slate-400 hover:text-white transition-all">ระบุวันที่</button>
-                        <button onclick="setDeadlineMode('unknown')" id="btn-mode-unknown" class="flex-1 py-1.5 text-xs rounded-md text-slate-400 hover:text-white transition-all">ยังไม่รู้</button>
+                        <button onclick="setDeadlineMode('week')" id="btn-mode-week" class="flex-1 py-1.5 text-xs rounded-md bg-slate-700 text-white">วันในสัปดาห์</button>
+                        <button onclick="setDeadlineMode('date')" id="btn-mode-date" class="flex-1 py-1.5 text-xs rounded-md text-slate-400">ระบุวันที่</button>
+                        <button onclick="setDeadlineMode('unknown')" id="btn-mode-unknown" class="flex-1 py-1.5 text-xs rounded-md text-slate-400">ยังไม่รู้</button>
                     </div>
-
                     <div id="deadline-week-selector" class="grid grid-cols-4 gap-2">
-                        <button onclick="selectDay('จันทร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">จันทร์</button>
-                        <button onclick="selectDay('อังคาร')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">อังคาร</button>
-                        <button onclick="selectDay('พุธ')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">พุธ</button>
-                        <button onclick="selectDay('พฤหัส')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">พฤหัส</button>
-                        <button onclick="selectDay('ศุกร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">ศุกร์</button>
-                        <button onclick="selectDay('เสาร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">เสาร์</button>
-                        <button onclick="selectDay('อาทิตย์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700">อาทิตย์</button>
-                        <button onclick="selectDay('พรุ่งนี้')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs sm:text-sm text-yellow-400 hover:bg-slate-700 font-bold">พรุ่งนี้</button>
+                        <button onclick="selectDay('จันทร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs text-slate-300 hover:bg-slate-700">จันทร์</button>
+                        <button onclick="selectDay('อังคาร')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs text-slate-300 hover:bg-slate-700">อังคาร</button>
+                        <button onclick="selectDay('พุธ')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs text-slate-300 hover:bg-slate-700">พุธ</button>
+                        <button onclick="selectDay('พฤหัส')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs text-slate-300 hover:bg-slate-700">พฤหัส</button>
+                        <button onclick="selectDay('ศุกร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs text-slate-300 hover:bg-slate-700">ศุกร์</button>
+                        <button onclick="selectDay('เสาร์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs text-slate-300 hover:bg-slate-700">เสาร์</button>
+                        <button onclick="selectDay('อาทิตย์')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs text-slate-300 hover:bg-slate-700">อาทิตย์</button>
+                        <button onclick="selectDay('พรุ่งนี้')" class="day-btn border border-slate-600 rounded-lg py-2 text-xs text-yellow-400 hover:bg-slate-700 font-bold">พรุ่งนี้</button>
                     </div>
-
                     <div id="deadline-date-selector" class="hidden">
-                        <input type="date" id="dateInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                        <input type="date" id="dateInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white">
                     </div>
-
                     <div id="deadline-unknown-msg" class="hidden text-center p-3 border border-dashed border-slate-700 rounded-xl text-slate-400 text-sm">
                         <i class="fa-solid fa-question-circle mr-1"></i> เดี๋ยวค่อยมาใส่ทีหลัง
                     </div>
                 </div>
-                
                 <div class="mb-2">
-                    <label class="block text-xs text-blue-400 mb-2 font-bold uppercase">ติดป้าย (เลือกได้หลายข้อ)</label>
+                    <label class="block text-xs text-blue-400 mb-2 font-bold uppercase">ติดป้าย</label>
                     <div class="space-y-2" id="colorPickerList"></div>
                 </div>
             </div>
-
             <div class="p-4 border-t border-slate-700 bg-slate-800/50 rounded-b-2xl flex gap-3">
                 <button onclick="closeAddModal()" class="flex-1 py-3 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl font-medium">ยกเลิก</button>
-                <button onclick="confirmAddTask()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 active:scale-95 transition-all">บันทึก</button>
+                <button onclick="confirmAddTask()" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium">บันทึก</button>
             </div>
         </div>
     </div>
@@ -301,7 +296,7 @@
             <p class="text-slate-400 text-sm mb-6">ย้ายไปถังขยะก่อน เผื่อเปลี่ยนใจ</p>
             <div class="flex gap-3">
                 <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium">ไม่ลบ</button>
-                <button onclick="executeDelete()" class="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-medium shadow-lg shadow-red-500/30 active:scale-95 transition-all">ลบเลย</button>
+                <button onclick="executeDelete()" class="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-medium">ลบเลย</button>
             </div>
         </div>
     </div>
@@ -319,7 +314,7 @@
             </div>
             <div id="trashList" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900/30 custom-scroll"></div>
             <div class="p-4 border-t border-slate-700 bg-slate-800 text-center pb-8 sm:pb-4 rounded-b-2xl">
-                <button onclick="emptyTrash()" class="text-red-400 text-sm hover:text-red-300 flex items-center justify-center gap-2 mx-auto px-4 py-2 hover:bg-red-500/10 rounded-lg transition-colors">
+                <button onclick="emptyTrash()" class="text-red-400 text-sm hover:text-red-300 flex items-center justify-center gap-2 mx-auto px-4 py-2 hover:bg-red-500/10 rounded-lg">
                     <i class="fa-solid fa-fire"></i> ล้างถังขยะถาวร
                 </button>
             </div>
@@ -328,7 +323,7 @@
 
     <script>
         // === CONFIG ===
-        const KEY = 'homework-app-responsive';
+        const KEY = 'homework-app-v3-fixed';
         const USERNAME_KEY = 'homework-username';
         
         const TAG_CONFIG = {
@@ -610,7 +605,7 @@
                 state.trash.unshift(item);
                 saveData();
                 renderTrashBadge();
-                renderBoard(); // Force re-render to remove item visually
+                renderBoard();
             }
             closeDeleteModal();
         }
@@ -636,7 +631,6 @@
             const content = document.getElementById('trashContent');
             const list = document.getElementById('trashList');
             list.innerHTML = '';
-            
             if (state.trash.length === 0) {
                 list.innerHTML = `<div class="flex flex-col items-center justify-center h-40 text-slate-500"><i class="fa-solid fa-wind text-3xl mb-3 opacity-50"></i><p class="text-sm">ถังขยะว่างเปล่า</p></div>`;
             } else {
@@ -680,40 +674,65 @@
             if (confirm('ล้างถาวรเลยนะ?')) { state.trash = []; saveData(); openTrashModal(); renderTrashBadge(); }
         }
 
-        // === DRAG & DROP & AUTO SCROLL (CUSTOM LOGIC) ===
-        let draggedId = null;
+        // === DRAG & DROP & ROBUST AUTO SCROLL ===
         let isDragging = false;
-        
+        let currentDragX = 0;
+        let autoScrollInterval = null;
+
         function setupDragAndDrop() {
             const container = document.getElementById('board');
             const cols = document.querySelectorAll('.column-content');
-            
-            // Standard Drag Events
+
             cols.forEach(col => {
+                // Track finger/mouse position constantly for scroll
                 col.addEventListener('dragover', e => { 
                     e.preventDefault(); 
                     col.classList.add('drag-over');
-                    handleAutoScroll(e.clientX); // Trigger auto-scroll
+                    currentDragX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
                 });
                 col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
                 col.addEventListener('drop', handleDrop);
             });
+
+            // Global touch move tracker as backup
+            document.addEventListener('touchmove', (e) => {
+                if(isDragging && e.touches[0]) {
+                   currentDragX = e.touches[0].clientX;
+                }
+            }, {passive: false});
         }
         
-        // Custom Auto Scroll Logic for Mobile
-        function handleAutoScroll(cursorX) {
-            const container = document.getElementById('board');
-            const threshold = 60; // Distance from edge to trigger scroll
-            const speed = 10; // Scroll speed
-            const width = window.innerWidth;
+        function startAutoScroll() {
+            if(autoScrollInterval) return;
             
-            // Only scroll if screen is narrow (Mobile/Tablet view with overflow)
-            if (window.innerWidth < 1024) {
-                if (cursorX > width - threshold) {
-                    container.scrollLeft += speed;
-                } else if (cursorX < threshold) {
-                    container.scrollLeft -= speed;
+            autoScrollInterval = requestAnimationFrame(function scrollLoop() {
+                if (!isDragging) {
+                    stopAutoScroll();
+                    return;
                 }
+
+                const container = document.getElementById('board');
+                const threshold = 70; // Wider zone
+                const speed = 8;
+                const width = window.innerWidth;
+                
+                // Only scroll if screen is small (mobile/tablet)
+                if (window.innerWidth < 1024) {
+                    if (currentDragX > width - threshold) {
+                        container.scrollLeft += speed;
+                    } else if (currentDragX < threshold) {
+                        container.scrollLeft -= speed;
+                    }
+                }
+                
+                autoScrollInterval = requestAnimationFrame(scrollLoop);
+            });
+        }
+        
+        function stopAutoScroll() {
+            if (autoScrollInterval) {
+                cancelAnimationFrame(autoScrollInterval);
+                autoScrollInterval = null;
             }
         }
 
@@ -722,11 +741,15 @@
             isDragging = true;
             this.classList.add('dragging'); 
             e.dataTransfer.effectAllowed = 'move'; 
-            e.dataTransfer.setData('text/plain', draggedId); 
+            e.dataTransfer.setData('text/plain', draggedId);
+            
+            // Start the "Game Loop" for scrolling
+            startAutoScroll();
         }
 
         function handleDragEnd() { 
             isDragging = false;
+            stopAutoScroll();
             this.classList.remove('dragging'); 
             document.querySelectorAll('.column-content').forEach(c => c.classList.remove('drag-over')); 
             draggedId = null; 
